@@ -1,0 +1,11 @@
+checkpoints/
+pipeline_outputs/
+.ipynb_checkpoints/
+.Rhistory
+.RData
+.Rproj.user/
+*.rds
+*.rda
+*.RData
+*.log
+.DS_Store

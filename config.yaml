@@ -1,0 +1,118 @@
+# =============================================================================
+# scRNA-seq Pipeline Configuration
+# Fill in this file for your project. All other scripts read from here.
+# =============================================================================
+
+project:
+  name: "MyProject"
+
+# -----------------------------------------------------------------------------
+# STEP TOGGLES
+# Set optional steps to true/false. Required steps always run.
+#
+# Step order:
+#   01_qc.R              (required)
+#   02_cellbender.R      (optional)
+#   03_cell_cycle.R      (optional)
+#   04_normalization_pca.R (required)
+#   05_integration.R     (optional)
+#   06_clustering_umap.R (required)
+# -----------------------------------------------------------------------------
+steps:
+  run_cellbender:  true
+  run_cell_cycle:  true
+  run_integration: true
+
+# -----------------------------------------------------------------------------
+# PATHS
+# -----------------------------------------------------------------------------
+paths:
+  cellbender_output_dir: "/path/to/cellbender_outputs"
+  output_dir: "pipeline_outputs"         # Root output folder
+  checkpoints_dir: "checkpoints"         # Intermediate RDS objects between steps
+
+# -----------------------------------------------------------------------------
+# SAMPLES
+# - cellranger_path : full path to the filtered_feature_bc_matrix folder
+# - cellbender_h5   : filename (not full path) of the CellBender filtered .h5 file
+# - cellbender_csv  : filename (not full path) of the CellBender cell barcodes CSV
+# - metadata        : any key/value metadata columns to attach to cells
+#                     (name them however fits your experiment)
+# -----------------------------------------------------------------------------
+samples:
+  - name: "sample_A"
+    cellranger_path: "/path/to/cellranger/sample_A/outs/filtered_feature_bc_matrix"
+    cellbender_h5: "sample_A_output_filtered.h5"
+    cellbender_csv: "sample_A_output_cell_barcodes.csv"
+    metadata:
+      batch: "batch01"
+      condition: "control"
+
+  - name: "sample_B"
+    cellranger_path: "/path/to/cellranger/sample_B/outs/filtered_feature_bc_matrix"
+    cellbender_h5: "sample_B_output_filtered.h5"
+    cellbender_csv: "sample_B_output_cell_barcodes.csv"
+    metadata:
+      batch: "batch01"
+      condition: "treatment"
+
+  - name: "sample_C"
+    cellranger_path: "/path/to/cellranger/sample_C/outs/filtered_feature_bc_matrix"
+    cellbender_h5: "sample_C_output_filtered.h5"
+    cellbender_csv: "sample_C_output_cell_barcodes.csv"
+    metadata:
+      batch: "batch02"
+      condition: "control"
+
+  - name: "sample_D"
+    cellranger_path: "/path/to/cellranger/sample_D/outs/filtered_feature_bc_matrix"
+    cellbender_h5: "sample_D_output_filtered.h5"
+    cellbender_csv: "sample_D_output_cell_barcodes.csv"
+    metadata:
+      batch: "batch02"
+      condition: "treatment"
+
+# -----------------------------------------------------------------------------
+# SEURAT OBJECT CREATION
+# -----------------------------------------------------------------------------
+seurat:
+  min_cells: 3
+  min_features: 200
+  mt_pattern: "^MT-"    # Human: "^MT-"  |  Mouse: "^mt-"
+
+# -----------------------------------------------------------------------------
+# QC FILTERING THRESHOLDS (Step 01)
+# Per-cell thresholds applied after Seurat object creation.
+# Set a value to null to disable that filter.
+# -----------------------------------------------------------------------------
+qc:
+  min_features: 200         # Min genes per cell
+  max_features: 6000        # Max genes per cell (removes likely doublets/multiplets)
+  min_counts: 500           # Min UMIs per cell
+  max_counts: 30000         # Max UMIs per cell
+  max_mt_percent: 20        # Max mitochondrial gene %
+  run_doublet_detection: true   # Run scDblFinder doublet detection
+
+# -----------------------------------------------------------------------------
+# NORMALIZATION & PCA (Step 04)
+# -----------------------------------------------------------------------------
+analysis:
+  n_variable_features: 3000
+  n_pca_components: 30
+
+# -----------------------------------------------------------------------------
+# INTEGRATION (Step 05 — only used if steps.run_integration: true)
+# -----------------------------------------------------------------------------
+integration:
+  harmony_group_vars: "batch"   # Metadata column(s) to integrate over
+
+# -----------------------------------------------------------------------------
+# CLUSTERING & UMAP (Step 06)
+# clustering_reduction: which embedding to use for neighbors + UMAP
+#   - "harmony"  if you ran integration (Step 05)
+#   - "pca"      if you skipped integration
+# -----------------------------------------------------------------------------
+clustering:
+  reduction: "harmony"                          # "harmony" or "pca"
+  resolutions: [0.2, 0.4, 0.6, 0.8, 1.0]
+  selected_resolution: 0.4
