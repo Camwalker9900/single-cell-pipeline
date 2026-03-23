@@ -1,23 +1,28 @@
 #!/usr/bin/env Rscript
 
-# =============================================================================
-# envs/requirements.R
-# Install all R packages required by the pipeline.
-# Run once before first use: Rscript envs/requirements.R
-# =============================================================================
+cran_packages <- c(
+  "yaml", "dplyr", "ggplot2", "patchwork", "RColorBrewer", "Matrix",
+  "readr", "tidyr", "viridis", "hdf5r", "Seurat", "harmony"
+)
 
-cran_packages <- c("yaml", "dplyr", "ggplot2", "patchwork", "RColorBrewer", "Matrix")
+bioc_packages <- c(
+  "scDblFinder", "SingleCellExperiment", "slingshot", "miloR", "edgeR", "zellkonverter"
+)
 
-bioc_packages <- c("Seurat", "harmony", "scDblFinder", "SingleCellExperiment")
+optional_manual <- c("CHOIR", "CellChat", "monocle3", "SeuratWrappers", "CytoTRACE2")
 
-# hdf5r for reading .h5 files (CellBender step)
-hdf5r_packages <- c("hdf5r")
+install_if_missing <- function(pkgs, installer) {
+  missing <- pkgs[!vapply(pkgs, requireNamespace, logical(1), quietly = TRUE)]
+  if (length(missing) > 0) installer(missing)
+}
 
 cat("Installing CRAN packages...\n")
-install.packages(c(cran_packages, hdf5r_packages), repos = "https://cloud.r-project.org")
+install_if_missing(cran_packages, function(pkgs) install.packages(pkgs, repos = "https://cloud.r-project.org"))
 
 cat("\nInstalling Bioconductor packages...\n")
 if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
-BiocManager::install(bioc_packages)
+install_if_missing(bioc_packages, function(pkgs) BiocManager::install(pkgs))
 
-cat("\nAll packages installed.\n")
+cat("\nOptional packages not installed automatically here:\n")
+for (pkg in optional_manual) cat(" - ", pkg, "\n", sep = "")
+cat("Install those separately in the environment where you plan to use the corresponding optional stages.\n")

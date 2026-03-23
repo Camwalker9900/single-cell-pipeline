@@ -1,44 +1,23 @@
 # =============================================================================
 # scRNA-seq Pipeline Configuration
-# Fill in this file for your project. All other scripts read from here.
 # =============================================================================
 
 project:
   name: "MyProject"
 
-# -----------------------------------------------------------------------------
-# STEP TOGGLES
-# Set optional steps to true/false. Required steps always run.
-#
-# Step order:
-#   01_qc.R              (required)
-#   02_cellbender.R      (optional)
-#   03_cell_cycle.R      (optional)
-#   04_normalization_pca.R (required)
-#   05_integration.R     (optional)
-#   06_clustering_umap.R (required)
-# -----------------------------------------------------------------------------
 steps:
-  run_cellbender:  true
-  run_cell_cycle:  true
-  run_integration: true
+  run_cellbender: false
+  run_cell_cycle: false
+  run_integration: false
+  run_annotation: false
+  run_differential_expression: false
+  run_downstream_tools: false
 
-# -----------------------------------------------------------------------------
-# PATHS
-# -----------------------------------------------------------------------------
 paths:
   cellbender_output_dir: "/path/to/cellbender_outputs"
-  output_dir: "pipeline_outputs"         # Root output folder
-  checkpoints_dir: "checkpoints"         # Intermediate RDS objects between steps
+  output_dir: "pipeline_outputs"
+  checkpoints_dir: "checkpoints"
 
-# -----------------------------------------------------------------------------
-# SAMPLES
-# - cellranger_path : full path to the filtered_feature_bc_matrix folder
-# - cellbender_h5   : filename (not full path) of the CellBender filtered .h5 file
-# - cellbender_csv  : filename (not full path) of the CellBender cell barcodes CSV
-# - metadata        : any key/value metadata columns to attach to cells
-#                     (name them however fits your experiment)
-# -----------------------------------------------------------------------------
 samples:
   - name: "sample_A"
     cellranger_path: "/path/to/cellranger/sample_A/outs/filtered_feature_bc_matrix"
@@ -56,63 +35,109 @@ samples:
       batch: "batch01"
       condition: "treatment"
 
-  - name: "sample_C"
-    cellranger_path: "/path/to/cellranger/sample_C/outs/filtered_feature_bc_matrix"
-    cellbender_h5: "sample_C_output_filtered.h5"
-    cellbender_csv: "sample_C_output_cell_barcodes.csv"
-    metadata:
-      batch: "batch02"
-      condition: "control"
-
-  - name: "sample_D"
-    cellranger_path: "/path/to/cellranger/sample_D/outs/filtered_feature_bc_matrix"
-    cellbender_h5: "sample_D_output_filtered.h5"
-    cellbender_csv: "sample_D_output_cell_barcodes.csv"
-    metadata:
-      batch: "batch02"
-      condition: "treatment"
-
-# -----------------------------------------------------------------------------
-# SEURAT OBJECT CREATION
-# -----------------------------------------------------------------------------
 seurat:
   min_cells: 3
   min_features: 200
-  mt_pattern: "^MT-"    # Human: "^MT-"  |  Mouse: "^mt-"
+  mt_pattern: "^MT-"
 
-# -----------------------------------------------------------------------------
-# QC FILTERING THRESHOLDS (Step 01)
-# Per-cell thresholds applied after Seurat object creation.
-# Set a value to null to disable that filter.
-# -----------------------------------------------------------------------------
 qc:
-  min_features: 200         # Min genes per cell
-  max_features: 6000        # Max genes per cell (removes likely doublets/multiplets)
-  min_counts: 500           # Min UMIs per cell
-  max_counts: 30000         # Max UMIs per cell
-  max_mt_percent: 20        # Max mitochondrial gene %
-  run_doublet_detection: true   # Run scDblFinder doublet detection
+  min_features: 200
+  max_features: 6000
+  min_counts: 500
+  max_counts: 30000
+  max_mt_percent: 20
+  run_doublet_detection: true
 
-# -----------------------------------------------------------------------------
-# NORMALIZATION & PCA (Step 04)
-# -----------------------------------------------------------------------------
 analysis:
   n_variable_features: 3000
   n_pca_components: 30
 
-# -----------------------------------------------------------------------------
-# INTEGRATION (Step 05 — only used if steps.run_integration: true)
-# -----------------------------------------------------------------------------
 integration:
-  harmony_group_vars: "batch"   # Metadata column(s) to integrate over
+  harmony_group_vars: "batch"
 
-# -----------------------------------------------------------------------------
-# CLUSTERING & UMAP (Step 06)
-# clustering_reduction: which embedding to use for neighbors + UMAP
-#   - "harmony"  if you ran integration (Step 05)
-#   - "pca"      if you skipped integration
-# -----------------------------------------------------------------------------
 clustering:
-  reduction: "harmony"                          # "harmony" or "pca"
+  method: "seurat"      # seurat | choir
+  reduction: "pca"      # pca | harmony
+  dims: 30
   resolutions: [0.2, 0.4, 0.6, 0.8, 1.0]
   selected_resolution: 0.4
+  choir:
+    alpha: 0.05
+    n_cores: 1
+
+annotation:
+  ident_col: null
+  methods:
+    findallmarkers: false
+    module_scores: false
+    label_transfer: false
+    tangram: false
+  findallmarkers:
+    only_pos: true
+    min_pct: 0.25
+    logfc_threshold: 0.25
+    test_use: "wilcox"
+  module_scores:
+    gene_set_file: null
+    gene_sets: null
+  label_transfer:
+    reference_rds: null
+    reference_assay: "RNA"
+    reference_label_col: null
+    output_label_col: "predicted_label"
+    output_score_col: "prediction_score"
+    dims: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30]
+  tangram:
+    python_bin: "python3"
+    script_path: "scripts/tangram_annotate.py"
+    query_type: "xenium"   # xenium | h5ad
+    query_path: null
+    reference_h5ad: null
+    label_col: null
+
+differential_expression:
+  comparisons: []
+  # Example:
+  # comparisons:
+  #   - name: "cluster0_control_vs_treatment"
+  #     subset_col: "RNA_snn_res.0.4"
+  #     subset_values: ["0"]
+  #     group_by: "condition"
+  #     ident_1: "control"
+  #     ident_2: "treatment"
+  #     test_use: "wilcox"
+  #     min_pct: 0.1
+  #     logfc_threshold: 0.25
+
+downstream:
+  cellchat:
+    enabled: false
+    label_col: null
+    split_by: "condition"
+    database: "human"
+    min_cells: 10
+  slingshot:
+    enabled: false
+    reduction: "pca"
+    cluster_col: null
+    start_cluster: null
+    end_clusters: null
+  monocle:
+    enabled: false
+    reduction: "umap"
+    label_col: null
+    root_col: null
+    root_values: null
+  cytotrace:
+    enabled: false
+    species: "human"
+    n_cores: 1
+    plot_reduction: "umap"
+  milo:
+    enabled: false
+    sample_col: "sample"
+    condition_col: "condition"
+    reduction: "PCA"
+    d: 30
+    k: 30
+    prop: 0.1
