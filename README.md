@@ -136,6 +136,86 @@ differential_expression:
       logfc_threshold: 0.25
 ```
 
+## Seurat / AnnData Conversion
+
+The pipeline includes standalone converters for bidirectional Seurat v5 <-> AnnData (`.h5ad`) conversion. These work independently of the pipeline and do not require `config.yaml`.
+
+### Seurat -> AnnData
+
+```bash
+Rscript scripts/convert_seurat_to_anndata.R \
+  --input /path/to/seurat.rds \
+  --output /path/to/output.h5ad
+```
+
+Options:
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--assays RNA,SCT` | default assay only | Comma-separated assays to export. Extra assays are stored as prefixed layers (e.g., `SCT_counts`, `SCT_data`). |
+| `--python /path/to/python` | `python3` | Python binary with `anndata`, `scipy`, `numpy`, `pandas` installed. |
+| `--keep-intermediate` | off | Keep the intermediate directory for inspection/debugging. |
+| `--no-graphs` | off | Skip exporting graph objects (NN/SNN). |
+
+### AnnData -> Seurat
+
+```bash
+Rscript scripts/convert_anndata_to_seurat.R \
+  --input /path/to/input.h5ad \
+  --output /path/to/seurat.rds
+```
+
+Options: `--python` and `--keep-intermediate` (same as above).
+
+### What is preserved
+
+**High fidelity:**
+- Raw counts and normalized data
+- Cell metadata (`.obs` / `meta.data`) including factor levels
+- Feature metadata and variable features
+- Dimensional reductions (PCA, UMAP, Harmony embeddings)
+- Cluster identities / active identity
+- NN and SNN graphs
+
+**By design, skipped:**
+- `scale.data` (dense, large, easily recomputed)
+- Spatial/image data (not in scope for scRNA-first pipeline)
+
+**Round-trip precision:** embeddings incur ~1e-6 max diff from float64 -> float32 -> float64 conversion. All integer data (counts, metadata) is exact.
+
+### How it works
+
+Conversion uses an intermediate directory of standard formats (Matrix Market for sparse matrices, CSV for metadata) rather than relying on wrapper packages:
+
+1. **Seurat -> AnnData**: R extracts all components to a temp directory -> Python assembles a compliant `.h5ad`
+2. **AnnData -> Seurat**: Python exports components to a temp directory -> R rebuilds a Seurat v5 object
+
+Seurat v5 split layers (e.g., per-sample count matrices) are auto-joined before export. Per-sample identity is preserved in cell metadata.
+
+### Pipeline integration
+
+To automatically export after the pipeline finishes, enable the export step in `config.yaml`:
+
+```yaml
+steps:
+  run_export: true
+
+export:
+  format: "h5ad"
+  python_bin: "python3"
+  assays: null              # null = default assay only
+  join_layers: true
+  include_graphs: true
+```
+
+The export step reads the best available upstream checkpoint and writes to `pipeline_outputs/exports/<project_name>.h5ad`.
+
+You can also run it standalone against a specific checkpoint:
+
+```bash
+Rscript scripts/run_pipeline.R --step export
+```
+
 ## Checkpoints
 
 Each stage writes an `.rds` checkpoint into `checkpoints/`.
@@ -197,7 +277,14 @@ These optional packages are not installed automatically there:
 
 You only need those if you enable the corresponding optional methods.
 
-Tangram also requires Python-side dependencies such as `scanpy`, `pandas`, and `tangram`. The export step requires a working Python environment with `anndata` plus the helper scripts in `scripts/`.
+Tangram requires Python-side dependencies (`scanpy`, `pandas`, `tangram`).
+
+The export step and standalone converters require a Python environment with:
+
+- `anndata`
+- `scipy`
+- `numpy`
+- `pandas`
 
 ## Verification
 
@@ -206,6 +293,8 @@ Useful low-cost checks after changes:
 ```bash
 Rscript -e "for (f in Sys.glob('scripts/*.R')) parse(file=f)"
 python3 -m py_compile scripts/tangram_annotate.py
+python3 -m py_compile scripts/build_anndata.py
+python3 -m py_compile scripts/export_anndata.py
 Rscript scripts/run_pipeline.R --step clustering --config config.yaml
 ```
 
