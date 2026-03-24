@@ -9,3 +9,5 @@ pipeline_outputs/
 *.RData
 *.log
 .DS_Store
+logs/
+test_runs/

@@ -12,6 +12,7 @@ steps:
   run_annotation: false
   run_differential_expression: false
   run_downstream_tools: false
+  run_export: false
 
 paths:
   cellbender_output_dir: "/path/to/cellbender_outputs"
@@ -141,3 +142,10 @@ downstream:
     d: 30
     k: 30
     prop: 0.1
+
+export:
+  format: "h5ad"
+  python_bin: "python3"
+  assays: null              # null = default assay only; or ["RNA", "SCT"]
+  join_layers: true
+  include_graphs: true

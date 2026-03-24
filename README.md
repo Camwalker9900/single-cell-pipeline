@@ -9,6 +9,7 @@ A modular, checkpoint-based single-cell RNA-seq pipeline built around Seurat. It
 - optional annotation methods
 - optional differential expression
 - optional downstream analysis hooks for CellChat, Slingshot, Monocle3, CytoTRACE2, and miloR
+- optional export to AnnData (`.h5ad`)
 
 The pipeline is configured through a single root-level file: `config.yaml`.
 
@@ -16,7 +17,7 @@ The pipeline is configured through a single root-level file: `config.yaml`.
 
 | # | Script | Required | Description |
 |---|--------|----------|-------------|
-| 01 | `scripts/01_qc.R` | Yes | Load Cell Ranger outputs, create per-sample Seurat objects, QC filtering, optional doublet detection, QC plots |
+| 01 | `scripts/01_qc.R` | Yes | Load per-sample `seurat_rds` inputs or Cell Ranger outputs, QC filtering, optional doublet detection, QC plots |
 | 02 | `scripts/02_cellbender.R` | Optional | Filter QC-passed cells against CellBender barcodes |
 | 03 | `scripts/03_cell_cycle.R` | Optional | Merge samples, score cell cycle, regress `S.Score` and `G2M.Score` |
 | 04 | `scripts/04_normalization_pca.R` | Yes | Normalize, find variable features, scale, PCA |
@@ -25,6 +26,7 @@ The pipeline is configured through a single root-level file: `config.yaml`.
 | 07 | `scripts/07_annotation.R` | Optional | Run `FindAllMarkers`, module scores, label transfer, and/or Tangram hook |
 | 08 | `scripts/08_differential_expression.R` | Optional | Run configured differential-expression comparisons |
 | 09 | `scripts/09_downstream_tools.R` | Optional | Run configured CellChat, Slingshot, Monocle3, CytoTRACE2, and/or miloR analyses |
+| 10 | `scripts/10_export.R` | Optional | Export the best available object checkpoint to AnnData (`.h5ad`) |
 
 ## Quick Start
 
@@ -61,6 +63,7 @@ Rscript scripts/run_pipeline.R --step clustering
 Rscript scripts/run_pipeline.R --step annotation
 Rscript scripts/run_pipeline.R --step differential_expression
 Rscript scripts/run_pipeline.R --step downstream
+Rscript scripts/run_pipeline.R --step export
 
 # Resume from a stage onward
 Rscript scripts/run_pipeline.R --from clustering
@@ -72,14 +75,14 @@ Rscript scripts/run_pipeline.R --config path/to/config.yaml
 
 ## Configuration
 
-All project-specific behavior lives in `config.yaml`.
+All project-specific behavior lives in `config.yaml`. For cluster runs, it is reasonable to keep additional project configs under `configs/` and submit batch scripts from `jobs/`.
 
 Important sections:
 
 - `project`: project name
 - `steps`: enable or disable optional stages
 - `paths`: output, checkpoint, and CellBender directories
-- `samples`: one entry per sample, including `cellranger_path`, CellBender filenames, and metadata
+- `samples`: one entry per sample, using either `seurat_rds` or `cellranger_path`, plus optional CellBender filenames and metadata
 - `seurat`: object creation defaults
 - `qc`: per-cell QC thresholds
 - `analysis`: feature-selection and PCA settings
@@ -88,13 +91,14 @@ Important sections:
 - `annotation`: enable and configure marker discovery, module scores, label transfer, and Tangram
 - `differential_expression`: explicit DE comparisons to run
 - `downstream`: per-tool configs for CellChat, Slingshot, Monocle3, CytoTRACE2, and miloR
+- `export`: optional `.h5ad` export settings
 
 ### Minimal Required Config
 
 At minimum, fill in:
 
 - `paths.cellbender_output_dir` if you will use CellBender
-- `samples[*].cellranger_path`
+- `samples[*].seurat_rds` or `samples[*].cellranger_path`
 - `samples[*].metadata`
 - `clustering.reduction`
   Use `harmony` if integration is enabled and `pca` otherwise.
@@ -149,11 +153,13 @@ checkpoints/
 └── 09_downstream_tools.rds
 ```
 
+`10_export` does not create a new checkpoint; it writes files under `exports/`.
+
 Important behavior:
 
 - Early steps use a named list of per-sample Seurat objects.
 - Step 3 or 4 merges samples into a single Seurat object.
-- Downstream stages choose the best available upstream checkpoint by file existence.
+- Downstream and export stages choose the best available upstream checkpoint by file existence.
 - If you keep stale checkpoints from disabled stages, downstream behavior may still pick them up.
 
 ## Output Structure
@@ -191,7 +197,7 @@ These optional packages are not installed automatically there:
 
 You only need those if you enable the corresponding optional methods.
 
-Tangram also requires Python-side dependencies such as `scanpy`, `pandas`, and `tangram`.
+Tangram also requires Python-side dependencies such as `scanpy`, `pandas`, and `tangram`. The export step requires a working Python environment with `anndata` plus the helper scripts in `scripts/`.
 
 ## Verification
 
@@ -208,3 +214,12 @@ Rscript scripts/run_pipeline.R --step clustering --config config.yaml
 - The pipeline assumes you run commands from the repository root.
 - `--step ...` force-runs a named stage even if the corresponding config toggle is false.
 - The safest way to add new methods is to update `config.yaml`, `scripts/00_load_config.R`, and `scripts/run_pipeline.R` together.
+
+## Public Push Checklist
+
+Before pushing this repo publicly:
+
+- keep `config.yaml` generic and do not replace placeholders with private sample paths
+- keep project-specific configs, jobs, logs, and run outputs outside this repo
+- run `git status --short` and confirm only reusable code/docs changes remain
+- replace the example GitHub clone URL in this README with the real public repo URL

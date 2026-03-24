@@ -21,6 +21,7 @@ run_integration <- isTRUE(cfg$steps$run_integration)
 run_annotation  <- isTRUE(cfg$steps$run_annotation)
 run_de          <- isTRUE(cfg$steps$run_differential_expression)
 run_downstream  <- isTRUE(cfg$steps$run_downstream_tools)
+run_export      <- isTRUE(cfg$steps$run_export)
 
 cellbender_dir  <- cfg$paths$cellbender_output_dir %||% "cellbender_outputs"
 output_dir      <- cfg$paths$output_dir %||% "pipeline_outputs"
@@ -54,13 +55,24 @@ cellranger_dirs <- setNames(
   sample_names
 )
 
+seurat_rds_files <- setNames(
+  lapply(cfg$samples, `[[`, "seurat_rds"),
+  sample_names
+)
+
 cb_files <- setNames(
-  lapply(cfg$samples, function(s) file.path(cellbender_dir, s$cellbender_h5)),
+  lapply(cfg$samples, function(s) {
+    if (is.null(s$cellbender_h5) || identical(s$cellbender_h5, "")) return(NULL)
+    file.path(cellbender_dir, s$cellbender_h5)
+  }),
   sample_names
 )
 
 barcode_files <- setNames(
-  lapply(cfg$samples, function(s) file.path(cellbender_dir, s$cellbender_csv)),
+  lapply(cfg$samples, function(s) {
+    if (is.null(s$cellbender_csv) || identical(s$cellbender_csv, "")) return(NULL)
+    file.path(cellbender_dir, s$cellbender_csv)
+  }),
   sample_names
 )
 
@@ -132,6 +144,8 @@ monocle_cfg          <- downstream_cfg$monocle %||% list()
 cytotrace_cfg        <- downstream_cfg$cytotrace %||% list()
 milo_cfg             <- downstream_cfg$milo %||% list()
 
+export_cfg           <- cfg$export %||% list()
+
 cat("Config loaded:", CONFIG_PATH, "\n")
 cat("Project:", project_name, "\n")
 cat("Samples:", paste(sample_names, collapse = ", "), "\n")
@@ -140,5 +154,6 @@ cat("Steps — CellBender:", run_cellbender,
     "| Integration:", run_integration,
     "| Annotation:", run_annotation,
     "| DE:", run_de,
-    "| Downstream:", run_downstream, "\n")
+    "| Downstream:", run_downstream,
+    "| Export:", run_export, "\n")
 cat("Clustering method:", clustering_method, "| reduction:", clustering_reduction, "\n\n")

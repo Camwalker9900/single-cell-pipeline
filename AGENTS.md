@@ -11,6 +11,7 @@ This repository is a checkpoint-based scRNA-seq pipeline in R centered on Seurat
 - optional annotation methods
 - optional differential expression
 - optional downstream analyses including CellChat, Slingshot, Monocle3, CytoTRACE2, and miloR
+- optional export to AnnData (`.h5ad`)
 
 ## Entry Points
 
@@ -33,18 +34,20 @@ Use the current repo layout, not the stale examples in older docs.
 7. `scripts/07_annotation.R` optional
 8. `scripts/08_differential_expression.R` optional
 9. `scripts/09_downstream_tools.R` optional
+10. `scripts/10_export.R` optional
 
 The orchestrator sources each step script directly. Shared config and paths come from [`scripts/00_load_config.R`](/home/cam/github/single-cell-pipeline/scripts/00_load_config.R), and shared helper logic lives in [`scripts/00_pipeline_utils.R`](/home/cam/github/single-cell-pipeline/scripts/00_pipeline_utils.R).
 
 ## Data Contracts
 
-- Steps 1 and 2 work on a named list of per-sample Seurat objects.
+- Step 1 can load either per-sample `seurat_rds` objects or Cell Ranger matrices, and Steps 1 and 2 then work on a named list of per-sample Seurat objects.
 - Steps 3 onward work on a single merged Seurat object.
 - Checkpoints are the real control plane. Downstream scripts choose the best available upstream checkpoint by file existence.
 - New checkpoints now continue through:
   - `checkpoints/07_annotation.rds`
   - `checkpoints/08_differential_expression.rds`
   - `checkpoints/09_downstream_tools.rds`
+- Export reads the best available checkpoint but writes files under `exports/`; it does not create `10_export.rds`.
 
 ## Clustering
 
@@ -109,10 +112,12 @@ Treat [`config.yaml`](/home/cam/github/single-cell-pipeline/config.yaml) as the 
 High-value sections for new work:
 
 - `steps.*`
+- `samples[*].seurat_rds` and `samples[*].cellranger_path`
 - `clustering.*`
 - `annotation.*`
 - `differential_expression.*`
 - `downstream.*`
+- `export.*`
 
 When adding a new method or analysis branch, update all of:
 
@@ -127,6 +132,7 @@ When adding a new method or analysis branch, update all of:
 - `--step ...` still force-runs a named stage even if its config toggle is false.
 - CHOIR, CellChat, Monocle3, CytoTRACE2, and Tangram are not installed automatically by the baseline requirements script.
 - Tangram requires Python-side dependencies and an external spatial query input.
+- Export depends on the Python helper path and a working `anndata`-capable environment.
 - This repo is script-driven; verify changes with parse checks and targeted stage runs rather than assuming a test suite exists.
 
 ## Verification

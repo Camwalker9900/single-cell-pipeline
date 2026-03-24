@@ -56,6 +56,7 @@ if (isTRUE(cellchat_cfg$enabled)) {
       subset(obj, cells = keep_cells)
     }
     labels <- as.character(sub_obj@meta.data[[label_col]])
+    labels <- paste0("cluster_", safe_name(labels))
     names(labels) <- colnames(sub_obj)
     meta <- data.frame(labels = labels, row.names = colnames(sub_obj))
     data_input <- GetAssayData(sub_obj, assay = "RNA", layer = "data")

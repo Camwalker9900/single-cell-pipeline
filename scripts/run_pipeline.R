@@ -15,7 +15,8 @@ source("scripts/00_load_config.R")
 
 all_steps <- c(
   "qc", "cellbender", "cell_cycle", "norm_pca", "integration",
-  "clustering", "annotation", "differential_expression", "downstream"
+  "clustering", "annotation", "differential_expression", "downstream",
+  "export"
 )
 
 step_scripts <- list(
@@ -27,7 +28,8 @@ step_scripts <- list(
   clustering            = "scripts/06_clustering_umap.R",
   annotation            = "scripts/07_annotation.R",
   differential_expression = "scripts/08_differential_expression.R",
-  downstream            = "scripts/09_downstream_tools.R"
+  downstream            = "scripts/09_downstream_tools.R",
+  export                = "scripts/10_export.R"
 )
 
 step_enabled <- list(
@@ -39,7 +41,8 @@ step_enabled <- list(
   clustering            = TRUE,
   annotation            = run_annotation,
   differential_expression = run_de,
-  downstream            = run_downstream
+  downstream            = run_downstream,
+  export                = run_export
 )
 
 if (!is.null(run_single)) {
