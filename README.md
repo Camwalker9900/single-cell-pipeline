@@ -32,7 +32,7 @@ The pipeline is configured through a single root-level file: `config.yaml`.
 
 ```bash
 # 1. Clone
-git clone https://github.com/your-org/scrna-pipeline.git
+git clone https://github.com/Camwalker9900/single-cell-pipeline.git
 cd scrna-pipeline
 
 # 2. Install baseline dependencies
@@ -214,12 +214,3 @@ Rscript scripts/run_pipeline.R --step clustering --config config.yaml
 - The pipeline assumes you run commands from the repository root.
 - `--step ...` force-runs a named stage even if the corresponding config toggle is false.
 - The safest way to add new methods is to update `config.yaml`, `scripts/00_load_config.R`, and `scripts/run_pipeline.R` together.
-
-## Public Push Checklist
-
-Before pushing this repo publicly:
-
-- keep `config.yaml` generic and do not replace placeholders with private sample paths
-- keep project-specific configs, jobs, logs, and run outputs outside this repo
-- run `git status --short` and confirm only reusable code/docs changes remain
-- replace the example GitHub clone URL in this README with the real public repo URL
