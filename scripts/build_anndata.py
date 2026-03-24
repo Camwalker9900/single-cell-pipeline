@@ -155,6 +155,8 @@ def build_anndata(intermediate_dir, output_path):
 
     # ---- Reductions -> obsm / varm / uns ----
     reductions = manifest.get("reductions", {})
+    if isinstance(reductions, list):
+        reductions = {}
     for red_name, red_info in reductions.items():
         red_dir = os.path.join(intermediate_dir, "reductions", red_name)
         emb_path = os.path.join(red_dir, "embeddings.csv")
@@ -196,6 +198,8 @@ def build_anndata(intermediate_dir, output_path):
     # ---- Graphs -> obsp ----
     graphs_dir = os.path.join(intermediate_dir, "graphs")
     graph_manifest = manifest.get("graphs", {})
+    if isinstance(graph_manifest, list):
+        graph_manifest = {}
     if os.path.isdir(graphs_dir) and graph_manifest:
         for graph_name in graph_manifest:
             mtx_path = os.path.join(graphs_dir, f"{graph_name}.mtx")

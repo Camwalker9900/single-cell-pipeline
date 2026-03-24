@@ -105,6 +105,64 @@ Notes:
 - These are optional by design because package availability and project assumptions vary a lot.
 - Several tools require additional metadata discipline, especially `condition`, `sample`, root-state definitions, or label columns.
 
+## Seurat / AnnData Conversion
+
+The pipeline includes bidirectional conversion between Seurat v5 and AnnData (`.h5ad`).
+
+### Standalone Usage
+
+```bash
+# Seurat -> AnnData (primary direction)
+Rscript scripts/convert_seurat_to_anndata.R --input obj.rds --output obj.h5ad
+
+# AnnData -> Seurat
+Rscript scripts/convert_anndata_to_seurat.R --input obj.h5ad --output obj.rds
+
+# Options
+#   --assays RNA,SCT        Export multiple assays (default: default assay only)
+#   --python /path/to/python Python binary (default: python3)
+#   --keep-intermediate      Keep intermediate directory for inspection
+#   --no-graphs              Skip graph objects
+```
+
+### Architecture
+
+Conversion uses an intermediate directory format to avoid fragile direct format hacks:
+
+1. **Seurat -> AnnData**: R extracts matrices/metadata to intermediate dir -> Python builds `.h5ad`
+2. **AnnData -> Seurat**: Python exports to intermediate dir -> R rebuilds Seurat v5 object
+
+Helper scripts: [`scripts/build_anndata.py`](/home/cam/github/single-cell-pipeline/scripts/build_anndata.py) and [`scripts/export_anndata.py`](/home/cam/github/single-cell-pipeline/scripts/export_anndata.py). Core R functions in [`scripts/conversion_utils.R`](/home/cam/github/single-cell-pipeline/scripts/conversion_utils.R).
+
+### AnnData Mapping
+
+| Seurat v5 | AnnData |
+|-----------|---------|
+| counts layer | `adata.X` + `adata.layers['counts']` |
+| data layer (normalized) | `adata.layers['data']` |
+| `meta.data` | `adata.obs` |
+| feature metadata | `adata.var` |
+| `VariableFeatures()` | `adata.var['highly_variable']` |
+| PCA embeddings | `adata.obsm['X_pca']` |
+| UMAP embeddings | `adata.obsm['X_umap']` |
+| PCA loadings (partial) | `adata.uns['pca']['loadings']` |
+| PCA stdev | `adata.uns['pca']['stdev']` |
+| SNN/NN graphs | `adata.obsp['RNA_snn']`, `adata.obsp['RNA_nn']` |
+| Extra assay layers | `adata.layers['<assay>_<layer>']` |
+
+### Key Design Decisions
+
+- Seurat v5 split layers are auto-joined before export (per-sample identity is in `.obs` metadata).
+- `scale.data` is skipped (dense, large, recomputable).
+- Raw counts go into `adata.X` (matches modern Python tool expectations).
+- PCA loadings are stored in `adata.uns` (not `adata.varm`) when they cover only variable features.
+- Factor column levels are preserved via JSON serialization for round-trip fidelity.
+- Numerical precision: float32 round-trip introduces ~1e-6 max diff in embeddings — expected and harmless.
+
+### Pipeline Integration
+
+Step 10 (`scripts/10_export.R`) exports the latest checkpoint to `.h5ad` when `steps.run_export: true` in config. Output goes to `pipeline_outputs/exports/<project_name>.h5ad`.
+
 ## Config Guidance
 
 Treat [`config.yaml`](/home/cam/github/single-cell-pipeline/config.yaml) as the authoritative interface.
@@ -141,5 +199,7 @@ Useful checks after edits:
 
 - `Rscript -e "for (f in Sys.glob('scripts/*.R')) parse(file=f)"`
 - `python3 -m py_compile scripts/tangram_annotate.py`
+- `python3 -m py_compile scripts/build_anndata.py`
+- `python3 -m py_compile scripts/export_anndata.py`
 - `Rscript scripts/run_pipeline.R --step clustering --config <cfg>`
 - `Rscript scripts/run_pipeline.R --step annotation --config <cfg>`

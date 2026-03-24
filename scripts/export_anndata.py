@@ -176,23 +176,14 @@ def export_anndata(h5ad_path, out_dir):
         print(f"  Exported graph '{key}': {graph.shape}")
 
     # ---- Factor columns from uns ----
-    # h5ad may mangle string arrays (especially single-element ones), so be defensive
+    # Factor columns are stored as a JSON string to avoid h5ad mangling
+    # nested dicts with string arrays.
     factor_columns = {}
-    if "seurat_factor_columns" in adata.uns:
-        raw = adata.uns["seurat_factor_columns"]
-        for k in raw:
-            v = raw[k]
-            if isinstance(v, str):
-                factor_columns[k] = [v]
-            elif isinstance(v, np.ndarray):
-                if v.ndim == 0:
-                    factor_columns[k] = [str(v.item())]
-                else:
-                    factor_columns[k] = [str(x) for x in v]
-            elif hasattr(v, "__iter__"):
-                factor_columns[k] = [str(x) for x in v]
-            else:
-                factor_columns[k] = [str(v)]
+    if "seurat_factor_columns_json" in adata.uns:
+        try:
+            factor_columns = json.loads(adata.uns["seurat_factor_columns_json"])
+        except (json.JSONDecodeError, TypeError):
+            pass
 
     # ---- Manifest ----
     n_vf = int(adata.var.get("highly_variable", pd.Series(dtype=bool)).sum())
